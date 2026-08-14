@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -153,10 +154,17 @@ public class GuiCraftingCore extends GuiStorageCore {
         List<String> tip = new ArrayList<String>();
         tip.add(recipe.name != null && !recipe.name.isEmpty() ? recipe.name : "Recipe");
         boolean ready = canCraft(recipe);
-        if (!ready && canCraftRecursively(recipe)) {
-            tip.add(EnumChatFormatting.AQUA + "Craftable via other saved recipes");
-        } else if (!ready) {
-            tip.add(EnumChatFormatting.RED + "Not enough materials");
+        if (!ready) {
+            LinkedHashMap<String, ChainStep> steps = new LinkedHashMap<String, ChainStep>();
+            boolean chainable = canSatisfy(recipe.matrix, 1, buildVirtualStock(), new HashSet<String>(), 0, steps);
+            if (chainable) {
+                tip.add(EnumChatFormatting.AQUA + "Craftable via other saved recipes:");
+                for (ChainStep step : steps.values()) {
+                    tip.add(EnumChatFormatting.GRAY + "  " + step.quantity + "x " + step.displayName);
+                }
+            } else {
+                tip.add(EnumChatFormatting.RED + "Not enough materials");
+            }
         }
         tip.add(EnumChatFormatting.GRAY + "Click: load into grid");
         tip.add(EnumChatFormatting.GRAY + "Shift+Click: craft one");
@@ -258,11 +266,16 @@ public class GuiCraftingCore extends GuiStorageCore {
      * pool so ingredients competing for the same underlying raw materials are accounted for correctly.
      */
     private boolean canCraftRecursively(StoredRecipe recipe) {
-        return canSatisfy(recipe.matrix, 1, buildVirtualStock(), new HashSet<String>(), 0);
+        return canSatisfy(recipe.matrix, 1, buildVirtualStock(), new HashSet<String>(), 0, null);
     }
 
+    /**
+     * @param steps if non-null, records each sub-recipe used to resolve a shortfall (keyed by item, so
+     *              the same ingredient needed via multiple branches is reported once with a combined
+     *              quantity) -- used to preview a chain-craft before committing to it.
+     */
     private boolean canSatisfy(ItemStack[] matrix, int count, Map<String, Integer> stock, Set<String> inProgress,
-        int depth) {
+        int depth, Map<String, ChainStep> steps) {
         if (depth >= MAX_CHAIN_DEPTH || count <= 0) {
             return false;
         }
@@ -319,13 +332,24 @@ public class GuiCraftingCore extends GuiStorageCore {
             int batches = (shortfall + perBatch - 1) / perBatch;
 
             inProgress.add(key);
-            boolean subOk = canSatisfy(subRecipe.matrix, batches, stock, inProgress, depth + 1);
+            boolean subOk = canSatisfy(subRecipe.matrix, batches, stock, inProgress, depth + 1, steps);
             inProgress.remove(key);
 
             if (!subOk) {
                 return false;
             }
             stock.put(key, (perBatch * batches) - shortfall);
+
+            if (steps != null) {
+                int totalCrafted = perBatch * batches;
+                ChainStep step = steps.get(key);
+                if (step == null) {
+                    step = new ChainStep();
+                    step.displayName = subResult.getDisplayName();
+                    steps.put(key, step);
+                }
+                step.quantity += totalCrafted;
+            }
         }
         return true;
     }
@@ -461,5 +485,12 @@ public class GuiCraftingCore extends GuiStorageCore {
         tessellator.addVertex(cx, cy + r, 0);
         tessellator.addVertex(cx + r, cy, 0);
         tessellator.draw();
+    }
+
+    /** One entry in a chain-craft preview: how much of an item will get auto-crafted along the way. */
+    private static final class ChainStep {
+
+        String displayName;
+        int quantity;
     }
 }
