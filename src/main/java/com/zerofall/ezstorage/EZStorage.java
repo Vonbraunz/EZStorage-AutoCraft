@@ -6,22 +6,32 @@ import org.apache.logging.log4j.Logger;
 import com.zerofall.ezstorage.gui.GuiHandler;
 import com.zerofall.ezstorage.network.client.HandlerMsgPickBlockResponse;
 import com.zerofall.ezstorage.network.client.HandlerMsgStorage;
+import com.zerofall.ezstorage.network.client.MsgAutoCraft;
 import com.zerofall.ezstorage.network.client.MsgBulkImport;
 import com.zerofall.ezstorage.network.client.MsgClearCraftingGrid;
+import com.zerofall.ezstorage.network.client.MsgCraftStoredRecipe;
+import com.zerofall.ezstorage.network.client.MsgDeleteRecipe;
 import com.zerofall.ezstorage.network.client.MsgDropItem;
 import com.zerofall.ezstorage.network.client.MsgInvSlotClicked;
+import com.zerofall.ezstorage.network.client.MsgLoadRecipe;
 import com.zerofall.ezstorage.network.client.MsgPickBlockFromTerminal;
 import com.zerofall.ezstorage.network.client.MsgReqCrafting;
 import com.zerofall.ezstorage.network.client.MsgReqOpenInvGui;
 import com.zerofall.ezstorage.network.client.MsgReqStorage;
+import com.zerofall.ezstorage.network.client.MsgSaveRecipe;
+import com.zerofall.ezstorage.network.server.HandlerMsgAutoCraft;
 import com.zerofall.ezstorage.network.server.HandlerMsgBulkImport;
 import com.zerofall.ezstorage.network.server.HandlerMsgClearCraftingGrid;
+import com.zerofall.ezstorage.network.server.HandlerMsgCraftStoredRecipe;
+import com.zerofall.ezstorage.network.server.HandlerMsgDeleteRecipe;
 import com.zerofall.ezstorage.network.server.HandlerMsgDropItem;
 import com.zerofall.ezstorage.network.server.HandlerMsgInvSlotClicked;
+import com.zerofall.ezstorage.network.server.HandlerMsgLoadRecipe;
 import com.zerofall.ezstorage.network.server.HandlerMsgPickBlockFromTerminal;
 import com.zerofall.ezstorage.network.server.HandlerMsgReqCrafting;
 import com.zerofall.ezstorage.network.server.HandlerMsgReqOpenInvGui;
 import com.zerofall.ezstorage.network.server.HandlerMsgReqStorage;
+import com.zerofall.ezstorage.network.server.HandlerMsgSaveRecipe;
 import com.zerofall.ezstorage.network.server.MsgPickBlockResponse;
 import com.zerofall.ezstorage.network.server.MsgStorage;
 import com.zerofall.ezstorage.proxy.CommonProxy;
@@ -71,12 +81,18 @@ public class EZStorage {
         instance.network.registerMessage(HandlerMsgStorage.class, MsgStorage.class, d++, Side.CLIENT);
         instance.network
             .registerMessage(HandlerMsgClearCraftingGrid.class, MsgClearCraftingGrid.class, d++, Side.SERVER);
+        instance.network.registerMessage(HandlerMsgAutoCraft.class, MsgAutoCraft.class, d++, Side.SERVER);
         instance.network.registerMessage(HandlerMsgDropItem.class, MsgDropItem.class, d++, Side.SERVER);
         instance.network.registerMessage(HandlerMsgBulkImport.class, MsgBulkImport.class, d++, Side.SERVER);
         instance.network
             .registerMessage(HandlerMsgPickBlockFromTerminal.class, MsgPickBlockFromTerminal.class, d++, Side.SERVER);
         instance.network
             .registerMessage(HandlerMsgPickBlockResponse.class, MsgPickBlockResponse.class, d++, Side.CLIENT);
+        instance.network.registerMessage(HandlerMsgSaveRecipe.class, MsgSaveRecipe.class, d++, Side.SERVER);
+        instance.network.registerMessage(HandlerMsgDeleteRecipe.class, MsgDeleteRecipe.class, d++, Side.SERVER);
+        instance.network.registerMessage(HandlerMsgLoadRecipe.class, MsgLoadRecipe.class, d++, Side.SERVER);
+        instance.network
+            .registerMessage(HandlerMsgCraftStoredRecipe.class, MsgCraftStoredRecipe.class, d++, Side.SERVER);
     }
 
     @EventHandler

@@ -36,6 +36,7 @@ key.ezstorage.pick_block=Block aus Terminal nehmen
 hud.msg.ezstorage.sort.mode.amount=Sortieren nach: Menge
 hud.msg.ezstorage.sort.mode.name=Sortieren nach: Name
 hud.msg.ezstorage.sort.mode.mod=Sortieren nach: Mod
+hud.msg.ezstorage.sort.mode.recipe=Sortieren nach: Rezept
 hud.msg.ezstorage.sort.order.descending=Reihenfolge: Absteigend
 hud.msg.ezstorage.sort.order.ascending=Reihenfolge: Aufsteigend
 hud.msg.ezstorage.search.mode.auto=Suche: Auto

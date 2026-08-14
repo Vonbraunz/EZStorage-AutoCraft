@@ -23,6 +23,12 @@ public class ContainerStorageCoreCrafting extends ContainerStorageCore {
 
     public InventoryCrafting craftMatrix = new InventoryCrafting(this, 3, 3);
     public IInventory craftResult = new InventoryCraftResult();
+    /**
+     * Last recipe requested via an NEI overlay (one representative item per slot), even for slots
+     * {@link #tryToPopulateCraftingGrid} couldn't actually fill because the ingredient isn't owned.
+     * Lets "Save Recipe" capture the full intended recipe without requiring the materials in hand.
+     */
+    public ItemStack[] lastRequestedRecipe;
     private World worldObj;
 
     public ContainerStorageCoreCrafting(EntityPlayer player, World world, EZInventory inventory) {
@@ -288,18 +294,22 @@ public class ContainerStorageCoreCrafting extends ContainerStorageCore {
         return hasChanges;
     }
 
-    private ItemStack getMatchingItemFromStorage(ItemStack recipeItem) {
-        for (int i = 0; i < this.inventory.inventory.size(); i++) {
-            ItemStack group = this.inventory.inventory.get(i);
+    public static ItemStack getMatchingItemFromStorage(EZInventory inventory, ItemStack recipeItem) {
+        return getMatchingItemFromStorage(inventory, recipeItem, recipeItem.stackSize);
+    }
+
+    public static ItemStack getMatchingItemFromStorage(EZInventory inventory, ItemStack recipeItem, int size) {
+        for (int i = 0; i < inventory.inventory.size(); i++) {
+            ItemStack group = inventory.inventory.get(i);
             if (isRecipeItemValid(recipeItem, group)) {
-                if (group.stackSize >= recipeItem.stackSize) {
+                if (group.stackSize >= size) {
                     ItemStack stack = group.copy();
-                    stack.stackSize = recipeItem.stackSize;
-                    group.stackSize -= recipeItem.stackSize;
+                    stack.stackSize = size;
+                    group.stackSize -= size;
                     if (group.stackSize <= 0) {
-                        this.inventory.inventory.remove(i);
+                        inventory.inventory.remove(i);
                     }
-                    this.inventory.setHasChanges();
+                    inventory.setHasChanges();
                     return stack;
                 }
             }
@@ -307,7 +317,11 @@ public class ContainerStorageCoreCrafting extends ContainerStorageCore {
         return null;
     }
 
-    private static boolean isRecipeItemValid(ItemStack recipeItem, ItemStack candidate) {
+    private ItemStack getMatchingItemFromStorage(ItemStack recipeItem) {
+        return getMatchingItemFromStorage(this.inventory, recipeItem);
+    }
+
+    public static boolean isRecipeItemValid(ItemStack recipeItem, ItemStack candidate) {
         if (recipeItem == null || candidate == null || recipeItem.getItem() == null || candidate.getItem() == null)
             return false;
         if (OreDictionary.itemMatches(recipeItem, candidate, false)) {
@@ -375,6 +389,8 @@ public class ContainerStorageCoreCrafting extends ContainerStorageCore {
 
     public void clearGrid(EntityPlayer playerIn) {
         boolean cleared = false;
+        // Whatever NEI last asked for no longer reflects what's in the grid once it's explicitly cleared.
+        this.lastRequestedRecipe = null;
 
         for (int i = 0; i < 9; i++) {
             ItemStack stack = this.craftMatrix.getStackInSlot(i);

@@ -37,8 +37,19 @@ public class HandlerMsgReqCrafting implements IMessageHandler<MsgReqCrafting, IM
                 }
             }
 
+            // Remember what NEI actually asked for (one representative item per slot), even for slots
+            // tryToPopulateCraftingGrid can't fill below -- lets "Save Recipe" work without the materials.
+            ItemStack[] ghost = new ItemStack[9];
+            for (int i = 0; i < 9; i++) {
+                if (this.recipe[i] != null && this.recipe[i].length > 0 && this.recipe[i][0] != null) {
+                    ghost[i] = this.recipe[i][0].copy();
+                }
+            }
+            con.lastRequestedRecipe = ghost;
+
             if (con.tryToPopulateCraftingGrid(recipe, player, true)) {
                 EZInventoryManager.sendToClients(con.inventory);
+                con.detectAndSendChanges();
             }
         }
 

@@ -4,7 +4,8 @@ public enum SortMode {
 
     AMOUNT(0, "hud.msg.ezstorage.sort.mode.amount"),
     NAME(1, "hud.msg.ezstorage.sort.mode.name"),
-    MOD(2, "hud.msg.ezstorage.sort.mode.mod");
+    MOD(2, "hud.msg.ezstorage.sort.mode.mod"),
+    RECIPE(3, "hud.msg.ezstorage.sort.mode.recipe");
 
     public final int index;
     public final String langKey;

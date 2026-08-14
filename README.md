@@ -23,6 +23,10 @@ Simple Storage (former EZStorage) introduces an early-game storage system that s
   - Expose the storage inventory to hoppers, conduits, machines and AE2 storage bus
 - **Crafting Box**
   - This adds a crafting grid to the GUI of your Storage Core (compatible with NEI + clicking for easy crafting from the internal inventory)
+  - Save recipes for later: they show up as extra icons right in the item grid, labeled "Craft", with a red X if you're currently short on materials
+  - Click a saved recipe to load it into the grid, shift-click to craft one (ctrl+shift for a full stack), or right-click to delete it
+  - A recipe can be saved straight from an NEI overlay even if you don't own the ingredients yet, so it's ready to craft once you gather them
+  - Sort mode includes a "Recipe" option that brings your saved recipes to the front of the grid
 - **Portable Storage Panel**
   - This adds a small item that features a wood panel with wireless access to your storage core. It's tier can be upgraded and a crafting grid can also be added.
   - Upgrade by putting in crafting grid together with one redstone block and the upgrade item (ender eye, ender pearl, nether star, crafting box)
@@ -31,8 +35,8 @@ Simple Storage (former EZStorage) introduces an early-game storage system that s
 ## Mod Integration
 
 - **Not Enough Items** (GTNH version)
-  - Overlay recipes
-  - One-click crafting
+  - Overlay recipes into the crafting grid, pulling ingredients from storage first and your own inventory if needed
+  - One-click auto-crafting: crafts as many as your materials allow, sends the results to your inventory (storage only holds the overflow), and counts toward crafting-based quests like GTNH's
   - NEI-like search
 - **Waila**
   - Advanced tooltip overlay
@@ -67,6 +71,8 @@ This fork becomes some changes to be usable on servers, less-buggy and a lot of 
 - Replaced input and output block with a more enhanced proxy block
 - Configurable maximum different item types per storage (no limit by default)
 - Store storage as separated file in the world's save directory instead directly on the TileEntity (only send to client when needed)
+- Saved recipes on the Crafting Box, shown right in the storage grid, with load/craft/delete and a dedicated sort mode
+- Fixed NEI auto-crafting silently losing items, not registering GTNH quest crafting progress, and leaving the player-inventory display stale until the GUI was reopened
 
 ## Development
 

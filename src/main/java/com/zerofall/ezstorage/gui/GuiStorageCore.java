@@ -101,6 +101,7 @@ public class GuiStorageCore extends GuiContainer {
     protected boolean wasClicking = false;
     protected GuiTextField searchField;
     protected ItemStack mouseOverItem;
+    protected int mouseOverExtraIndex = -1;
     protected List<ItemStack> filteredList = new ArrayList<ItemStack>();
     protected LocalDateTime inventoryUpdateTimestamp;
     protected boolean needFullUpdate;
@@ -209,6 +210,8 @@ public class GuiStorageCore extends GuiContainer {
                         return "N";
                     case MOD:
                         return "M";
+                    case RECIPE:
+                        return "R";
                     default:
                         return "#";
                 }
@@ -296,7 +299,52 @@ public class GuiStorageCore extends GuiContainer {
         super.drawScreen(mouseX, mouseY, partialTicks);
         cacheMouseOverItem(mouseX, mouseY);
         drawSideButtonTooltips(mouseX, mouseY);
+        drawExtraEntryTooltip(mouseX, mouseY);
     }
+
+    /**
+     * Hook for subclasses (e.g. {@link GuiCraftingCore}) to append virtual, non-storage entries (such as
+     * saved recipes) to the tail of the item grid, after all real storage items. Cells beyond
+     * {@code filteredList.size() + extraEntryCount()} are treated as empty grid space.
+     */
+    protected int extraEntryCount() {
+        return 0;
+    }
+
+    /**
+     * When true, extra entries render before real storage items in the grid (indices
+     * {@code [0, extraEntryCount())}) instead of after them.
+     */
+    protected boolean extraEntriesFirst() {
+        return false;
+    }
+
+    /**
+     * Icon to render for the given extra entry (0-based, relative to the end of {@link #filteredList}).
+     */
+    protected ItemStack getExtraEntryIcon(int extraIndex) {
+        return null;
+    }
+
+    /**
+     * Called right after an extra entry's icon is drawn, so subclasses can mark it as distinct from a real
+     * stored item (e.g. a colored border). {@code x}/{@code y} are the same local (translated) coordinates
+     * used to render the icon itself.
+     */
+    protected void drawExtraEntryBadge(int extraIndex, int x, int y) {}
+
+    /**
+     * Called when the player clicks a cell occupied by an extra entry, instead of the normal
+     * insert/extract flow. {@code mode} follows the same convention as {@link #mouseClicked}'s local
+     * {@code mode} variable (0 = normal, 1 = shift, 2 = bulk-action keybind).
+     */
+    protected void handleExtraEntryClick(int extraIndex, int mouseButton, int mode) {}
+
+    /**
+     * Hook for subclasses to draw a tooltip for whichever extra entry is currently hovered
+     * ({@link #mouseOverExtraIndex}), if any.
+     */
+    protected void drawExtraEntryTooltip(int mouseX, int mouseY) {}
 
     private void drawSideButtons(int mouseX, int mouseY) {
         GL11.glDisable(GL11.GL_LIGHTING);
@@ -383,24 +431,41 @@ public class GuiStorageCore extends GuiContainer {
         }
         this.ezRenderer.zLevel = 200.0F;
 
+        int itemCount = this.filteredList.size();
+        int extraCount = extraEntryCount();
+        boolean extrasFirst = extraEntriesFirst();
+        int extraRangeStart = extrasFirst ? 0 : itemCount;
+        int itemRangeStart = extrasFirst ? extraCount : 0;
+        int totalEntries = itemCount + extraCount;
+
         boolean finished = false;
         for (int i = 0; i < this.rowsVisible(); i++) {
             x = 8;
             for (int j = 0; j < 9; j++) {
                 int index = (i * 9) + j;
                 index = scrollRow * 9 + index;
-                if (index >= this.filteredList.size()) {
+                if (index >= totalEntries) {
                     finished = true;
                     break;
                 }
-                ItemStack stack = this.filteredList.get(index);
-                if (stack != null) {
-                    FontRenderer font = stack.getItem()
-                        .getFontRenderer(stack);
-                    if (font == null) font = fontRendererObj;
-                    RenderHelper.enableGUIStandardItemLighting();
-                    itemRender.renderItemAndEffectIntoGUI(font, this.mc.getTextureManager(), stack, x, y);
-                    ezRenderer.renderItemOverlayIntoGUI(font, stack, x, y, "" + stack.stackSize);
+                if (index >= itemRangeStart && index < itemRangeStart + itemCount) {
+                    ItemStack stack = this.filteredList.get(index - itemRangeStart);
+                    if (stack != null) {
+                        FontRenderer font = stack.getItem()
+                            .getFontRenderer(stack);
+                        if (font == null) font = fontRendererObj;
+                        RenderHelper.enableGUIStandardItemLighting();
+                        itemRender.renderItemAndEffectIntoGUI(font, this.mc.getTextureManager(), stack, x, y);
+                        ezRenderer.renderItemOverlayIntoGUI(font, stack, x, y, "" + stack.stackSize);
+                    }
+                } else {
+                    int extraIndex = index - extraRangeStart;
+                    ItemStack icon = getExtraEntryIcon(extraIndex);
+                    if (icon != null) {
+                        RenderHelper.enableGUIStandardItemLighting();
+                        itemRender.renderItemAndEffectIntoGUI(fontRendererObj, this.mc.getTextureManager(), icon, x, y);
+                    }
+                    drawExtraEntryBadge(extraIndex, x, y);
                 }
                 x += 18;
             }
@@ -482,25 +547,36 @@ public class GuiStorageCore extends GuiContainer {
             } else {
                 mode = 0;
             }
-            int index = getInventory().slotCount();
-            if (slot < this.filteredList.size()) {
-                ItemStack group = this.filteredList.get(slot);
-                if (group == null || group.stackSize == 0) {
-                    return;
+
+            int itemCount = this.filteredList.size();
+            int extraCount = extraEntryCount();
+            boolean extrasFirst = extraEntriesFirst();
+            int extraRangeStart = extrasFirst ? 0 : itemCount;
+            int itemRangeStart = extrasFirst ? extraCount : 0;
+
+            if (slot >= extraRangeStart && slot < extraRangeStart + extraCount) {
+                handleExtraEntryClick(slot - extraRangeStart, mouseButton, mode);
+            } else {
+                int index = getInventory().slotCount();
+                if (slot >= itemRangeStart && slot < itemRangeStart + itemCount) {
+                    ItemStack group = this.filteredList.get(slot - itemRangeStart);
+                    if (group == null || group.stackSize == 0) {
+                        return;
+                    }
+                    index = getInventory().getIndexOf(group);
+                    if (index < 0) {
+                        return;
+                    }
                 }
-                index = getInventory().getIndexOf(group);
-                if (index < 0) {
-                    return;
-                }
+                EZStorage.instance.network.sendToServer(new MsgInvSlotClicked(index, mouseButton, mode));
+                ContainerStorageCore container = (ContainerStorageCore) this.inventorySlots;
+                container.customSlotClick(index, mouseButton, mode, this.mc.thePlayer);
+                // Refresh filtered list after client-side prediction,
+                // otherwise the GUI shows stale items that have already been
+                // extracted (especially noticeable when extracting all with
+                // space+click).
+                container.inventoryUpdateTimestamp = LocalDateTime.now();
             }
-            EZStorage.instance.network.sendToServer(new MsgInvSlotClicked(index, mouseButton, mode));
-            ContainerStorageCore container = (ContainerStorageCore) this.inventorySlots;
-            container.customSlotClick(index, mouseButton, mode, this.mc.thePlayer);
-            // Refresh filtered list after client-side prediction,
-            // otherwise the GUI shows stale items that have already been
-            // extracted (especially noticeable when extracting all with
-            // space+click).
-            container.inventoryUpdateTimestamp = LocalDateTime.now();
             wantFocus = false;
         }
 
@@ -561,7 +637,7 @@ public class GuiStorageCore extends GuiContainer {
         super.handleMouseInput();
         int i = Mouse.getEventDWheel();
         if (i != 0) {
-            int j = filteredList.size() / 9 - this.rowsVisible() + 1;
+            int j = (filteredList.size() + extraEntryCount()) / 9 - this.rowsVisible() + 1;
             if (i > 0) i = 1;
             if (i < 0) i = -1;
             this.currentScroll = (float) ((double) this.currentScroll - (double) i / (double) j);
@@ -783,22 +859,37 @@ public class GuiStorageCore extends GuiContainer {
     }
 
     private void scrollTo(float scroll) {
-        int i = (filteredList.size() + 8) / 9 - this.rowsVisible();
+        int i = (filteredList.size() + extraEntryCount() + 8) / 9 - this.rowsVisible();
         int j = (int) ((double) (scroll * (float) i) + 0.5D);
         if (j < 0) j = 0;
         this.scrollRow = j;
     }
 
     protected void cacheMouseOverItem(int mouseX, int mouseY) {
+        mouseOverItem = null;
+        mouseOverExtraIndex = -1;
+
         Integer slot = getSlotAt(mouseX, mouseY);
-        if (slot != null && slot < this.filteredList.size()) {
-            ItemStack group = this.filteredList.get(slot);
+        if (slot == null) {
+            return;
+        }
+
+        int itemCount = this.filteredList.size();
+        int extraCount = extraEntryCount();
+        boolean extrasFirst = extraEntriesFirst();
+        int extraRangeStart = extrasFirst ? 0 : itemCount;
+        int itemRangeStart = extrasFirst ? extraCount : 0;
+
+        if (slot >= extraRangeStart && slot < extraRangeStart + extraCount) {
+            mouseOverExtraIndex = slot - extraRangeStart;
+            return;
+        }
+        if (slot >= itemRangeStart && slot < itemRangeStart + itemCount) {
+            ItemStack group = this.filteredList.get(slot - itemRangeStart);
             if (group != null) {
                 mouseOverItem = group;
-                return;
             }
         }
-        mouseOverItem = null;
     }
 
     private static void loadSettingsFromConfig() {

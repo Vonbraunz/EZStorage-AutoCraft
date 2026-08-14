@@ -19,9 +19,11 @@ public class EZInventory {
     public String id;
     public boolean disabled;
     public ItemStack[] craftMatrix;
+    public List<StoredRecipe> recipes;
 
     public EZInventory() {
         inventory = new ArrayList<ItemStack>();
+        recipes = new ArrayList<StoredRecipe>();
     }
 
     public boolean getHasChanges() {
@@ -274,6 +276,14 @@ public class EZInventory {
             }
             tag.setTag("CraftMatrix", gridList);
         }
+
+        NBTTagList recipeList = new NBTTagList();
+        for (StoredRecipe recipe : this.recipes) {
+            NBTTagCompound recipeTag = new NBTTagCompound();
+            recipe.writeToNBT(recipeTag);
+            recipeList.appendTag(recipeTag);
+        }
+        tag.setTag("Recipes", recipeList);
     }
 
     public void readFromNBT(NBTTagCompound tag) {
@@ -308,6 +318,14 @@ public class EZInventory {
                 if (slotIndex >= 0 && slotIndex < 9) {
                     this.craftMatrix[slotIndex] = ItemStack.loadItemStackFromNBT(slotTag);
                 }
+            }
+        }
+
+        this.recipes = new ArrayList<StoredRecipe>();
+        if (tag.hasKey("Recipes", 9)) {
+            NBTTagList recipeList = tag.getTagList("Recipes", 10);
+            for (int i = 0; i < recipeList.tagCount(); i++) {
+                this.recipes.add(StoredRecipe.readFromNBT(recipeList.getCompoundTagAt(i)));
             }
         }
     }
