@@ -2,7 +2,11 @@ package com.zerofall.ezstorage.gui;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -31,11 +35,14 @@ import com.zerofall.ezstorage.util.EZInventory;
 import com.zerofall.ezstorage.util.StoredRecipe;
 
 import cpw.mods.fml.client.config.GuiButtonExt;
+import cpw.mods.fml.common.registry.GameData;
 
 public class GuiCraftingCore extends GuiStorageCore {
 
     private static final String CRAFT_LABEL = "Craft";
     private static final int CRAFT_LABEL_COLOR = 0xFFAA00;
+    private static final int CHAIN_LABEL_COLOR = 0x55CFFF;
+    private static final int MAX_CHAIN_DEPTH = 8;
 
     protected GuiButtonExt btnClearCraftingPanel;
     private GuiButtonExt btnSaveRecipe;
@@ -103,8 +110,12 @@ public class GuiCraftingCore extends GuiStorageCore {
         }
         StoredRecipe recipe = displayedRecipes.get(extraIndex);
 
-        drawCraftLabel(x, y);
-        if (!canCraft(recipe)) {
+        boolean ready = canCraft(recipe);
+        boolean chainable = !ready && canCraftRecursively(recipe);
+        drawCraftLabel(x, y, chainable ? CHAIN_LABEL_COLOR : CRAFT_LABEL_COLOR);
+        if (chainable) {
+            drawChainableMark(x, y);
+        } else if (!ready) {
             drawInsufficientMaterialsMark(x, y);
         }
     }
@@ -141,7 +152,10 @@ public class GuiCraftingCore extends GuiStorageCore {
         StoredRecipe recipe = displayedRecipes.get(extraIndex);
         List<String> tip = new ArrayList<String>();
         tip.add(recipe.name != null && !recipe.name.isEmpty() ? recipe.name : "Recipe");
-        if (!canCraft(recipe)) {
+        boolean ready = canCraft(recipe);
+        if (!ready && canCraftRecursively(recipe)) {
+            tip.add(EnumChatFormatting.AQUA + "Craftable via other saved recipes");
+        } else if (!ready) {
             tip.add(EnumChatFormatting.RED + "Not enough materials");
         }
         tip.add(EnumChatFormatting.GRAY + "Click: load into grid");
@@ -237,7 +251,121 @@ public class GuiCraftingCore extends GuiStorageCore {
         return count;
     }
 
-    private void drawCraftLabel(int x, int y) {
+    /**
+     * Whether this recipe could be crafted after auto-crafting any missing ingredients from the player's
+     * other saved recipes first (mirrors the server-side RecipeAutoCrafter, but as a pure feasibility
+     * check -- nothing here is actually crafted). Simulates consumption against a shared virtual stock
+     * pool so ingredients competing for the same underlying raw materials are accounted for correctly.
+     */
+    private boolean canCraftRecursively(StoredRecipe recipe) {
+        return canSatisfy(recipe.matrix, 1, buildVirtualStock(), new HashSet<String>(), 0);
+    }
+
+    private boolean canSatisfy(ItemStack[] matrix, int count, Map<String, Integer> stock, Set<String> inProgress,
+        int depth) {
+        if (depth >= MAX_CHAIN_DEPTH || count <= 0) {
+            return false;
+        }
+
+        List<ItemStack> templates = new ArrayList<ItemStack>();
+        List<Integer> needed = new ArrayList<Integer>();
+        for (ItemStack slotStack : matrix) {
+            if (slotStack == null) {
+                continue;
+            }
+            int templateIndex = -1;
+            for (int i = 0; i < templates.size(); i++) {
+                if (EZInventory.stacksEqual(templates.get(i), slotStack)) {
+                    templateIndex = i;
+                    break;
+                }
+            }
+            if (templateIndex >= 0) {
+                needed.set(templateIndex, needed.get(templateIndex) + count);
+            } else {
+                templates.add(slotStack);
+                needed.add(count);
+            }
+        }
+
+        for (int i = 0; i < templates.size(); i++) {
+            ItemStack template = templates.get(i);
+            int requiredTotal = needed.get(i);
+            String key = itemKey(template);
+            int have = stock.containsKey(key) ? stock.get(key) : 0;
+
+            if (have >= requiredTotal) {
+                stock.put(key, have - requiredTotal);
+                continue;
+            }
+
+            int shortfall = requiredTotal - have;
+            stock.put(key, 0);
+
+            if (inProgress.contains(key)) {
+                return false;
+            }
+
+            StoredRecipe subRecipe = findRecipeProducing(template);
+            if (subRecipe == null) {
+                return false;
+            }
+
+            ItemStack subResult = getRecipeIcon(subRecipe);
+            if (subResult == null) {
+                return false;
+            }
+            int perBatch = Math.max(1, subResult.stackSize);
+            int batches = (shortfall + perBatch - 1) / perBatch;
+
+            inProgress.add(key);
+            boolean subOk = canSatisfy(subRecipe.matrix, batches, stock, inProgress, depth + 1);
+            inProgress.remove(key);
+
+            if (!subOk) {
+                return false;
+            }
+            stock.put(key, (perBatch * batches) - shortfall);
+        }
+        return true;
+    }
+
+    private StoredRecipe findRecipeProducing(ItemStack template) {
+        for (StoredRecipe recipe : getInventory().recipes) {
+            ItemStack result = getRecipeIcon(recipe);
+            if (result != null && ContainerStorageCoreCrafting.isRecipeItemValid(template, result)) {
+                return recipe;
+            }
+        }
+        return null;
+    }
+
+    private Map<String, Integer> buildVirtualStock() {
+        Map<String, Integer> stock = new HashMap<String, Integer>();
+        for (ItemStack group : getInventory().inventory) {
+            addStock(stock, group);
+        }
+        for (ItemStack stack : this.mc.thePlayer.inventory.mainInventory) {
+            if (stack != null) {
+                addStock(stock, stack);
+            }
+        }
+        return stock;
+    }
+
+    private void addStock(Map<String, Integer> stock, ItemStack stack) {
+        String key = itemKey(stack);
+        Integer existing = stock.get(key);
+        stock.put(key, (existing == null ? 0 : existing) + stack.stackSize);
+    }
+
+    private static String itemKey(ItemStack stack) {
+        String name = GameData.getItemRegistry()
+            .getNameForObject(stack.getItem());
+        return name + "@" + stack.getItemDamage();
+    }
+
+    private void drawCraftLabel(int x, int y, int color) {
         boolean unicodeFlag = fontRendererObj.getUnicodeFlag();
         fontRendererObj.setUnicodeFlag(false);
 
@@ -259,7 +387,7 @@ public class GuiCraftingCore extends GuiStorageCore {
         fontRendererObj.drawString(CRAFT_LABEL, drawX + 1, drawY, 0x000000);
         fontRendererObj.drawString(CRAFT_LABEL, drawX, drawY - 1, 0x000000);
         fontRendererObj.drawString(CRAFT_LABEL, drawX, drawY + 1, 0x000000);
-        fontRendererObj.drawString(CRAFT_LABEL, drawX, drawY, CRAFT_LABEL_COLOR);
+        fontRendererObj.drawString(CRAFT_LABEL, drawX, drawY, color);
         GL11.glPopMatrix();
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
@@ -298,5 +426,40 @@ public class GuiCraftingCore extends GuiStorageCore {
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
+    }
+
+    /**
+     * Small diamond badge in the top-left corner -- deliberately a different shape from the full
+     * insufficient-materials X, so "not enough materials, but auto-craftable via another saved recipe"
+     * doesn't read as "blocked" at a glance.
+     */
+    private void drawChainableMark(int x, int y) {
+        GL11.glDisable(GL11.GL_TEXTURE_2D);
+        GL11.glDisable(GL11.GL_LIGHTING);
+        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL11.glEnable(GL11.GL_BLEND);
+
+        Tessellator tessellator = Tessellator.instance;
+        int cx = x + 4;
+        int cy = y + 4;
+
+        drawDiamond(tessellator, cx, cy, 4, 0.0f, 0.0f, 0.0f, 0.95f);
+        drawDiamond(tessellator, cx, cy, 3, 0.33f, 0.81f, 1.0f, 0.95f);
+
+        GL11.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+        GL11.glEnable(GL11.GL_TEXTURE_2D);
+        GL11.glEnable(GL11.GL_LIGHTING);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+    }
+
+    private void drawDiamond(Tessellator tessellator, int cx, int cy, int r, float red, float green, float blue,
+        float alpha) {
+        tessellator.startDrawingQuads();
+        tessellator.setColorRGBA_F(red, green, blue, alpha);
+        tessellator.addVertex(cx, cy - r, 0);
+        tessellator.addVertex(cx - r, cy, 0);
+        tessellator.addVertex(cx, cy + r, 0);
+        tessellator.addVertex(cx + r, cy, 0);
+        tessellator.draw();
     }
 }

@@ -1,79 +1,47 @@
 # Simple Storage
 
-Simple storage mod for Minecraft 1.7.10 (Forge).
+A no-frills item storage mod for Minecraft 1.7.10 / Forge. One block holds everything — no cables, no network to manage, no energy to feed. Right-click, search, done.
 
-## Description
+## Why this exists
 
-Simple Storage (former EZStorage) introduces an early-game storage system that scales and evolves as players progress, while keeping the vanilla flair. Want to put 100k Cobblestone in 1 slot? No problem. The blocks in the mod can add a crafting grid, additional storage, and more. Also includes integration into some mods for easier crafting or additional features!
+Chests fill up. Sorting them by hand doesn't scale. Simple Storage collapses that problem into a single **Storage Core**: place it, add tiers of storage blocks next to it as your stockpile grows, and every item in the system lives in one searchable GUI. It's deliberately not a full automation network — if you want conveyor belts and remote terminals, this isn't that mod. If you want a chest room that doesn't need forty chests, it is.
 
-## Blocks & Items
+## Getting started
 
-- **Storage Core**
-  - This is the core of your storage system
-  - Click on this block to open the GUI (search box included), and add adjacent blocks to expand
-  - Each system can only have 1 Storage Core
-  - This block can only be broken if it contains no items
-- **Storage Box**
-  - Tier 1 storage add-on wich increases the storage capacity of the Storage Core by a small amount
-- **Condensed Storage Box**
-  - Tier 2 storage add-on
-- **Hyper Storage Box**
-  - Tier 3 storage add-on
-- **Proxy Port**
-  - Expose the storage inventory to hoppers, conduits, machines and AE2 storage bus
-- **Crafting Box**
-  - This adds a crafting grid to the GUI of your Storage Core (compatible with NEI + clicking for easy crafting from the internal inventory)
-  - Save recipes for later: they show up as extra icons right in the item grid, labeled "Craft", with a red X if you're currently short on materials
-  - Click a saved recipe to load it into the grid, shift-click to craft one (ctrl+shift for a full stack), or right-click to delete it
-  - A recipe can be saved straight from an NEI overlay even if you don't own the ingredients yet, so it's ready to craft once you gather them
-  - Sort mode includes a "Recipe" option that brings your saved recipes to the front of the grid
-- **Portable Storage Panel**
-  - This adds a small item that features a wood panel with wireless access to your storage core. It's tier can be upgraded and a crafting grid can also be added.
-  - Upgrade by putting in crafting grid together with one redstone block and the upgrade item (ender eye, ender pearl, nether star, crafting box)
-  - No need for chunkloading the target storage core, it works without!
+1. Craft and place a **Storage Core**.
+2. Right-click to open it — there's a search bar built in from the start.
+3. Place **Storage Box** / **Condensed Storage Box** / **Hyper Storage Box** tiers directly against the Core to raise its capacity.
+4. Add a **Crafting Box** for a 3x3 grid wired straight into your stockpile, or a **Proxy Port** to expose the inventory to hoppers, pipes, and machines.
 
-## Mod Integration
+Only one Core per system, and it won't break while it's still holding items — so you can't lose a stash to a stray explosion.
 
-- **Not Enough Items** (GTNH version)
-  - Overlay recipes into the crafting grid, pulling ingredients from storage first and your own inventory if needed
-  - One-click auto-crafting: crafts as many as your materials allow, sends the results to your inventory (storage only holds the overflow), and counts toward crafting-based quests like GTNH's
-  - NEI-like search
-- **Waila**
-  - Advanced tooltip overlay
-  - Show storage content (items/types count) in world tooltip
-- **JABBA**
-  - Move the storage core from one place to another place using the dolly from Jabba
-- **Crafting Tweaks**
-  - Show typical crafting tweaks buttons on crafting grid
-- **Et Futurum Requiem**
-  - Spectator mode
-- **Applied Energistics 2**
-  - Inventory proxy can be used with AE storage buses
+Away from base? Craft a **Portable Storage Panel** for wireless access to a Core — no chunkloading required. It starts basic but can be upgraded (crafting grid + redstone block + an upgrade item: ender eye, ender pearl, nether star, or crafting box) to raise its tier and even add its own crafting grid.
 
-## Remarks
+## Crafting without leaving the grid
 
-This mod is intented to be a compact storage solution, and not an automated storage network. As of right now, I'm not going to include any features like filtered output, network cables, external monitors, or anything else remeniscent of Applied Energistics. If you have an idea how such features would fit nicely in vanilla worlds, feel free to open an issue for discussion.
+The Crafting Box pulls ingredients directly from storage as you place them, and returns anything you take back out. On top of that:
 
-As from my side, this mod is feature-completed. I'll try fixing bugs as they were found or make improvements where possible. However, any contribution in form of troubleshooting or pull requests for bugfixes, improvements, mod compat, or new features are welcome at any time.
+- **Recipes stick around.** Build something once and save it — it appears as its own icon inside the storage grid, so you're not hunting through a mental list of "things I usually make."
+- **A red X means you're short something.** The saved-recipe icon checks your storage *and* your own inventory in real time, so you know before you click whether you can actually make it.
+- **One click reloads it, one modifier crafts it.** Click to drop a saved recipe back into the grid, shift-click to craft a single one straight to your inventory, ctrl+shift-click to knock out a full stack, right-click to remove it from the list.
+- **You don't need the ingredients to save the recipe.** Pull a recipe up in NEI and save it on the spot — it'll sit there with a red X as a reminder of what to go collect.
+- **Sort by "Recipe"** to pull all your saved recipes to the front of the grid instead of hunting for them among your items.
 
-## Contribution
+## Talks to your other mods
 
-Feel free to open PRs for features, improvements, or compatibility fixes. I'm maintaining this at minimal effort for use on my server/modpack.
+| Mod | What you get |
+|---|---|
+| Not Enough Items (GTNH) | Drop a recipe into the grid straight from the NEI overlay, or one-click auto-craft it — results go to your inventory first, storage only catches the overflow, and it counts toward crafting-based quest lines |
+| Waila | Tooltip showing item/type counts when you look at a Storage Core |
+| JABBA | Move a fully-stocked Storage Core with a dolly instead of breaking it down |
+| Crafting Tweaks | The usual grid-manipulation buttons, right on the Crafting Box |
+| Et Futurum Requiem | Respects spectator mode — no reading other players' storage by flying through walls |
+| Applied Energistics 2 | Proxy Port doubles as an AE2 storage bus target |
 
-## Changes compared to the original version of EZStorage
+## Scope, on purpose
 
-This fork becomes some changes to be usable on servers, less-buggy and a lot of feature and code improvements.
+This won't grow filter cables, wireless terminals, or an autocrafting network — that's a different mod, and a good one already exists. Bug reports, compatibility patches, and feature ideas that fit within "compact storage box," not "AE2 clone," are welcome via PR.
 
-- Many bugfixes and some stability and code improvements
-- Lots of UI and performance improvements
-- Mod compat with NEI, Waila, Jabba, Crafting Tweaks, Et Futurum Requiem, etc.
-- Re-made the most textures to look nicer and fit better into vanilla worlds
-- Replaced input and output block with a more enhanced proxy block
-- Configurable maximum different item types per storage (no limit by default)
-- Store storage as separated file in the world's save directory instead directly on the TileEntity (only send to client when needed)
-- Saved recipes on the Crafting Box, shown right in the storage grid, with load/craft/delete and a dedicated sort mode
-- Fixed NEI auto-crafting silently losing items, not registering GTNH quest crafting progress, and leaving the player-inventory display stale until the GUI was reopened
+## Building
 
-## Development
-
-With vscode you need to run `gradlew eclipse` for the project to correctly recognize the class paths
+Standard RetroFuturaGradle project. `./gradlew build` for a jar, `./gradlew runClient` for a dev client. VS Code users should run `gradlew eclipse` once so the editor picks up the class paths correctly.

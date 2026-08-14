@@ -39,6 +39,10 @@ public class HandlerMsgCraftStoredRecipe implements IMessageHandler<MsgCraftStor
             }
         }
 
+        // Auto-craft any missing ingredients from other saved recipes first (e.g. sticks from planks),
+        // best-effort -- if it can't fully resolve, the craft below just runs out as it always did.
+        RecipeAutoCrafter.resolve(stored.matrix, message.count, player, con);
+
         if (HandlerMsgAutoCraft.craft(recipe, message.count, player, con)) {
             EZInventoryManager.sendToClients(con.inventory);
         }

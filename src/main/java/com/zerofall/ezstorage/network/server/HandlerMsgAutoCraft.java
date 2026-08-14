@@ -44,6 +44,17 @@ public class HandlerMsgAutoCraft implements IMessageHandler<MsgAutoCraft, IMessa
             }
         }
 
+        // Auto-craft any missing ingredients from other saved recipes first (e.g. sticks from planks),
+        // using the first alternative per slot as the representative target. Best-effort -- if it can't
+        // fully resolve, the craft below just runs out as it always did.
+        ItemStack[] primary = new ItemStack[9];
+        for (int i = 0; i < 9; i++) {
+            if (recipe[i] != null && recipe[i].length > 0) {
+                primary[i] = recipe[i][0];
+            }
+        }
+        RecipeAutoCrafter.resolve(primary, message.count, player, con);
+
         if (craft(recipe, message.count, player, con)) {
             EZInventoryManager.sendToClients(con.inventory);
         }
