@@ -11,6 +11,7 @@ import java.util.Set;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
@@ -21,6 +22,7 @@ import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import com.zerofall.ezstorage.EZStorage;
@@ -44,11 +46,17 @@ public class GuiCraftingCore extends GuiStorageCore {
     private static final int CRAFT_LABEL_COLOR = 0xFFAA00;
     private static final int CHAIN_LABEL_COLOR = 0x55CFFF;
     private static final int MAX_CHAIN_DEPTH = 8;
+    private static final int MAX_PROMPTED_COUNT = 10000;
+    private static final int PROMPT_BOX_WIDTH = 120;
+    private static final int PROMPT_BOX_HEIGHT = 44;
 
     protected GuiButtonExt btnClearCraftingPanel;
     private GuiButtonExt btnSaveRecipe;
 
     private final List<StoredRecipe> displayedRecipes = new ArrayList<StoredRecipe>();
+
+    private GuiTextField craftCountField;
+    private int promptRecipeIndex = -1;
 
     public GuiCraftingCore(EntityPlayer player, World world, int x, int y, int z) {
         super(new ContainerStorageCoreCrafting(player, world), world, x, y, z);
@@ -64,6 +72,22 @@ public class GuiCraftingCore extends GuiStorageCore {
 
         btnSaveRecipe = new GuiButtonExt(11, guiLeft + 99, guiTop + 126, 8, 8, "+");
         buttonList.add(btnSaveRecipe);
+
+        craftCountField = new GuiTextField(
+            fontRendererObj,
+            promptBoxX() + 8,
+            promptBoxY() + 18,
+            PROMPT_BOX_WIDTH - 16,
+            fontRendererObj.FONT_HEIGHT + 2);
+        craftCountField.setMaxStringLength(6);
+    }
+
+    private int promptBoxX() {
+        return guiLeft + (xSize - PROMPT_BOX_WIDTH) / 2;
+    }
+
+    private int promptBoxY() {
+        return guiTop + (ySize - PROMPT_BOX_HEIGHT) / 2;
     }
 
     @Override
@@ -83,6 +107,102 @@ public class GuiCraftingCore extends GuiStorageCore {
         } else if (button == btnSaveRecipe) {
             EZStorage.instance.network.sendToServer(new MsgSaveRecipe());
         }
+    }
+
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) {
+        if (promptRecipeIndex >= 0) {
+            if (isOverCraftCountField(mouseX, mouseY)) {
+                craftCountField.mouseClicked(mouseX, mouseY, mouseButton);
+            } else {
+                closeCraftCountPrompt();
+            }
+            return;
+        }
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+    }
+
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) {
+        if (promptRecipeIndex >= 0) {
+            if (keyCode == Keyboard.KEY_ESCAPE) {
+                closeCraftCountPrompt();
+            } else if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+                submitCraftCountPrompt();
+            } else if (Character.isDigit(typedChar) || keyCode == Keyboard.KEY_BACK
+                || keyCode == Keyboard.KEY_DELETE
+                || keyCode == Keyboard.KEY_LEFT
+                || keyCode == Keyboard.KEY_RIGHT
+                || keyCode == Keyboard.KEY_HOME
+                || keyCode == Keyboard.KEY_END) {
+                    craftCountField.textboxKeyTyped(typedChar, keyCode);
+                }
+            return;
+        }
+        super.keyTyped(typedChar, keyCode);
+    }
+
+    @Override
+    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        // Runs after everything else this GUI (and its buttons/tooltips) draws, so the prompt
+        // reliably paints on top instead of getting covered by button hover tooltips underneath it.
+        super.drawScreen(mouseX, mouseY, partialTicks);
+        if (promptRecipeIndex >= 0) {
+            drawCraftCountPrompt();
+        }
+    }
+
+    @Override
+    public void handleMouseInput() {
+        // Block scroll-wheel from reaching the storage grid underneath while the prompt is open.
+        if (promptRecipeIndex < 0) {
+            super.handleMouseInput();
+        }
+    }
+
+    private boolean isOverCraftCountField(int mouseX, int mouseY) {
+        return mouseX >= craftCountField.xPosition && mouseX < craftCountField.xPosition + craftCountField.width
+            && mouseY >= craftCountField.yPosition
+            && mouseY < craftCountField.yPosition + craftCountField.height;
+    }
+
+    private void openCraftCountPrompt(int realIndex) {
+        promptRecipeIndex = realIndex;
+        craftCountField.setText("1");
+        craftCountField.setFocused(true);
+        craftCountField.setCursorPositionEnd();
+    }
+
+    private void closeCraftCountPrompt() {
+        promptRecipeIndex = -1;
+        craftCountField.setFocused(false);
+    }
+
+    private void submitCraftCountPrompt() {
+        int count;
+        try {
+            count = Integer.parseInt(
+                craftCountField.getText()
+                    .trim());
+        } catch (NumberFormatException ignored) {
+            count = 0;
+        }
+        if (count > 0 && promptRecipeIndex >= 0) {
+            count = Math.min(count, MAX_PROMPTED_COUNT);
+            EZStorage.instance.network.sendToServer(new MsgCraftStoredRecipe(promptRecipeIndex, count));
+        }
+        closeCraftCountPrompt();
+    }
+
+    private void drawCraftCountPrompt() {
+        int boxX = promptBoxX();
+        int boxY = promptBoxY();
+
+        drawRect(guiLeft, guiTop, guiLeft + xSize, guiTop + ySize, 0xCC000000);
+        drawRect(boxX, boxY, boxX + PROMPT_BOX_WIDTH, boxY + PROMPT_BOX_HEIGHT, 0xFF333333);
+        fontRendererObj.drawStringWithShadow("Craft how many?", boxX + 8, boxY + 6, 0xFFFFFF);
+        craftCountField.drawTextBox();
+        fontRendererObj.drawStringWithShadow("Enter to craft, Esc to cancel", boxX + 8, boxY + 32, 0xAAAAAA);
     }
 
     @Override
@@ -134,6 +254,8 @@ public class GuiCraftingCore extends GuiStorageCore {
 
         if (mouseButton == 1) {
             EZStorage.instance.network.sendToServer(new MsgDeleteRecipe(realIndex));
+        } else if (mouseButton == 2) {
+            openCraftCountPrompt(realIndex);
         } else if (mouseButton == 0) {
             if (mode == 1) {
                 int count = GuiScreen.isCtrlKeyDown() ? 64 : 1;
@@ -169,6 +291,7 @@ public class GuiCraftingCore extends GuiStorageCore {
         tip.add(EnumChatFormatting.GRAY + "Click: load into grid");
         tip.add(EnumChatFormatting.GRAY + "Shift+Click: craft one");
         tip.add(EnumChatFormatting.GRAY + "Ctrl+Shift+Click: craft a stack");
+        tip.add(EnumChatFormatting.GRAY + "Middle-Click: craft a custom amount");
         tip.add(EnumChatFormatting.GRAY + "Right-Click: delete");
         func_146283_a(tip, mouseX, mouseY);
     }
